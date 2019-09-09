@@ -53,6 +53,9 @@ class AbstractRequestHandler(BaseRequestHandler):
                       print(ba.b2a_hex(message))
                       #print(len(message))
 
+                      # mbap_header = message[0:7]
+                      # pdu = message[7:]
+
                       key = b'b311de11706f5ede'
                       iv = b'd85f4ed091b8a210'
 
@@ -77,12 +80,17 @@ class AbstractRequestHandler(BaseRequestHandler):
                       mbap_header = dt[0:7]
                       remaining = self.get_meta_data(mbap_header)['length'] - 1
                       request_pdu = dt[7:8+remaining]
+                      # mbap_header = dt[0:7]
+                      # remaining = self.get_meta_data(mbap_header)['length'] - 1
+                      # request_pdu = dt
+                      fnx_code = request_pdu[0:1]
+                      print("fnx_code hex:", fnx_code)
                       
                 except ValueError:
-                    print("issue")
-                    return ("FF")
+                    return
 
                 response_adu = self.process(mbap_header + request_pdu)
+                print("response_adu:", response_adu)
                 #At this point the responce to the message  has been structured and is ready to be send to the client
                 self.respond(response_adu)
         except:
@@ -90,6 +98,23 @@ class AbstractRequestHandler(BaseRequestHandler):
             log.exception('Error while handling request: {0}.'
                           .format(traceback.print_exc()))
         raise
+
+    # def process(self, header, pdu):
+    #     """ Process request ADU and return response.
+
+    #     :param request_adu: A bytearray containing the ADU request.
+    #     :return: A bytearray containing the response of the ADU request.
+    #     """
+    #     meta_data = header
+    #     request_pdu = pdu
+
+    #     response_pdu = self.execute_route(meta_data, request_pdu)
+    #     print("response_pdu:", response_pdu)
+    #     response_adu = self.create_response_adu(meta_data, response_pdu)
+    #     print("response_adu:", response_adu)
+
+    #     return response_adu
+
 
     def process(self, request_adu):
         """ Process request ADU and return response.
@@ -143,4 +168,9 @@ class AbstractRequestHandler(BaseRequestHandler):
         """
         log.info('--> {0} - {1}.'.format(self.client_address[0],
                  ba.hexlify(response_adu)))
-        self.request.sendall(response_adu)
+
+        try:
+            self.request.sendall(response_adu)
+        except (BrokenPipeError, IOError):
+            print("I'm broken :(")
+            # self.request.sendall(b'\x00\x08\x00\x00\x00\x06\x01')

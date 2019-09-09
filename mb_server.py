@@ -13,6 +13,7 @@ log_to_stream(level=logging.DEBUG)
 
 # A very simple data store which maps addresses against their values.
 data_store = defaultdict(int)
+data_store[1] = 0
 
 # Enable values to be signed (default is False).
 conf.SIGNED_VALUES = True
@@ -31,6 +32,7 @@ def read_data_store(slave_id, function_code, address):
 def write_data_store(slave_id, function_code, address, value):
     """" Set value for address. """
     data_store[address] = value
+    # print("data_store", data_store)
 
 if __name__ == '__main__':
     try:

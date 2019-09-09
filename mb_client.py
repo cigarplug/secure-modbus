@@ -53,8 +53,11 @@ def enc_msg(msg):
 
 	cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
 
+	# mbap = msg[0:7]
+	# pdu = msg[7:]
+
 	padder = padding.PKCS7(128).padder()
-	padded_data = padder.update(ba.hexlify(message))
+	padded_data = padder.update(ba.hexlify(msg))
 	padded_data += padder.finalize()
 
 	encryptor = cipher.encryptor()
@@ -81,16 +84,23 @@ print("message sent. server response:")
 print(response)
 
 print("reading data pts")
-message =tcp.read_coils(slave_id=1,starting_address=1,quantity=11)
+message = tcp.read_coils(slave_id=1,starting_address=1,quantity=1)
 #message=b"".join([message,b'\x64'])
-print("sending message:")
-print(ba.b2a_hex(message))
+print("read coils msg plain hex:", ba.hexlify(message))
+print("read coils msg enc:", enc_msg(message))
+# print(ba.b2a_hex(message))
 
-recv = sock.sendall(enc_msg(message))
-print(recv)
+# sock.sendall(enc_msg(message))
+# recv = sock.recv(1024)
+# print("received:")
+# print(recv)
 
-# responce=tcp.send_message(message,sock)
-print("\nmessage sent. server response:")
-# print(responce)
+
+
+# tcp.parse_response_adu(recv, message)
+
+responce = tcp.send_message(enc_msg(message),sock)
+
+print(responce)
 sock.close()
 
