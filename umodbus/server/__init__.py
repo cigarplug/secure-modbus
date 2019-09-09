@@ -3,13 +3,19 @@ try:
 except ImportError:
     from SocketServer import BaseRequestHandler
 import binascii
-from binascii import hexlify
+import binascii as ba
 
 from umodbus import log
 from umodbus.functions import create_function_from_request_pdu
 from umodbus.exceptions import ModbusError, ServerDeviceFailureError
 from umodbus.utils import (get_function_code_from_request_pdu,
                            pack_exception_pdu, recv_exactly, recv_exactly_m)
+
+
+from cryptography.hazmat.primitives.ciphers import Cipher , algorithms , modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
+
 
 
 def route(self, slave_ids=None, function_codes=None, addresses=None):
@@ -42,18 +48,39 @@ class AbstractRequestHandler(BaseRequestHandler):
                 try:
                       message=self.request.recv(1024)
                       if not message: break
+                      print("message")
                       print(message)
-                      print(binascii.b2a_hex(message))
+                      print(ba.b2a_hex(message))
                       #print(len(message))
 
+                      key = b'b311de11706f5ede'
+                      iv = b'd85f4ed091b8a210'
+
+
+                      backend = default_backend()
+                      print("1")
+                      aes = algorithms.AES(key)
+                      mode = modes.CBC(iv)
+
+                      cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+                      print("2")
+                      decryptor = cipher.decryptor()
+                      dec_msg = decryptor.update(message) + decryptor.finalize()
+                      print("3")
+                      unpadder = padding.PKCS7(128).unpadder()
+                      dec_msg = unpadder.update(dec_msg)
+                      dt = dec_msg + unpadder.finalize()
+                      print("4")
+                      print("dt", dt)
+
                       #At this Point the message from the client has been received and is ready to be processed 
-                      mbap_header = message[0:7]
+                      mbap_header = dt[0:7]
                       remaining = self.get_meta_data(mbap_header)['length'] - 1
-                      request_pdu = message[7:8+remaining]
+                      request_pdu = dt[7:8+remaining]
                       
                 except ValueError:
                     print("issue")
-                    return
+                    return ("FF")
 
                 response_adu = self.process(mbap_header + request_pdu)
                 #At this point the responce to the message  has been structured and is ready to be send to the client
@@ -115,5 +142,5 @@ class AbstractRequestHandler(BaseRequestHandler):
         :param response_adu: A bytearray containing the response of an ADU.
         """
         log.info('--> {0} - {1}.'.format(self.client_address[0],
-                 hexlify(response_adu)))
+                 ba.hexlify(response_adu)))
         self.request.sendall(response_adu)
