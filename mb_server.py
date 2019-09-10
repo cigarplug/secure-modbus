@@ -13,7 +13,7 @@ log_to_stream(level=logging.DEBUG)
 
 # A very simple data store which maps addresses against their values.
 data_store = defaultdict(int)
-data_store[1] = 0
+# data_store[1] = 0
 
 # Enable values to be signed (default is False).
 conf.SIGNED_VALUES = True

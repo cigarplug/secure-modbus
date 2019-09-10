@@ -6,6 +6,7 @@ import codecs
 from umodbus import conf
 from umodbus.client import tcp
 import binascii as ba
+from umodbus.utils import recv_exactly
 from cryptography.hazmat.primitives.ciphers import Cipher , algorithms , modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
@@ -19,12 +20,12 @@ sock.connect(('localhost', 502))
 # Returns a message or Application Data Unit (ADU) specific for doing
 # Modbus TCP/IP.
 print("writing data:")
-data = [1,1,1,1,1,0,1,0, 1]
+data = [1,1,1,1]
 message = tcp.write_multiple_coils(slave_id=1, starting_address=1, values=data)
 
-print("message data hex:", ba.hexlify(message))
-print("message data og:", message)
-print("message data binascii", ba.unhexlify(ba.hexlify(message)))
+print("message data", message)
+# print("message data og:", message)
+print("message data ba", ba.unhexlify(ba.hexlify(message)))
 
 # mbap = ba.hexlify(message[0:7])
 
@@ -71,7 +72,13 @@ def enc_msg(msg):
 
 print("encrypted message:", enc_msg(message))
 
-response = sock.sendall(enc_msg(message))
+sock.sendall(enc_msg(message))
+resp = sock.recv(1024)
+
+print("message sent. server response:", ba.hexlify(resp))
+print("parsed response:", tcp.parse_response_adu(resp, message))
+
+# print("hehe", tcp.parse_response_adu(resp, message))
 
 # mm=sock.recv(1024)
 
@@ -80,27 +87,26 @@ response = sock.sendall(enc_msg(message))
 #response = tcp.send_message(message, sock)
 
 
-print("message sent. server response:")
-print(response)
+
+# print(response)
 
 print("reading data pts")
-message = tcp.read_coils(slave_id=1,starting_address=1,quantity=1)
+message = tcp.read_coils(slave_id=1,starting_address=1,quantity=len(data))
 #message=b"".join([message,b'\x64'])
 print("read coils msg plain hex:", ba.hexlify(message))
 print("read coils msg enc:", enc_msg(message))
 # print(ba.b2a_hex(message))
 
-# sock.sendall(enc_msg(message))
-# recv = sock.recv(1024)
-# print("received:")
-# print(recv)
+sock.sendall(enc_msg(message))
+
+recv = sock.recv(1024)
+print("received:")
+print(recv)
 
 
+print("received parsed:")
+print(tcp.parse_response_adu(recv, message))
 
-# tcp.parse_response_adu(recv, message)
-
-responce = tcp.send_message(enc_msg(message),sock)
-
-print(responce)
+# print(responce)
 sock.close()
 

@@ -74,7 +74,8 @@ class AbstractRequestHandler(BaseRequestHandler):
                       dec_msg = unpadder.update(dec_msg)
                       dt = dec_msg + unpadder.finalize()
                       print("4")
-                      print("dt", dt)
+                      print("dt", ba.unhexlify(dt))
+                      dt = ba.unhexlify(dt)
 
                       #At this Point the message from the client has been received and is ready to be processed 
                       mbap_header = dt[0:7]
@@ -163,14 +164,8 @@ class AbstractRequestHandler(BaseRequestHandler):
 
     def respond(self, response_adu):
         """ Send response ADU back to client.
-
         :param response_adu: A bytearray containing the response of an ADU.
         """
         log.info('--> {0} - {1}.'.format(self.client_address[0],
                  ba.hexlify(response_adu)))
-
-        try:
-            self.request.sendall(response_adu)
-        except (BrokenPipeError, IOError):
-            print("I'm broken :(")
-            # self.request.sendall(b'\x00\x08\x00\x00\x00\x06\x01')
+        self.request.sendall(response_adu)

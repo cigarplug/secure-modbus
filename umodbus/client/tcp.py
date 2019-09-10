@@ -259,6 +259,7 @@ def send_message(adu, sock):
     # Check exception ADU (which is shorter than all other responses) first.
     exception_adu_size = 9
     response_error_adu = recv_exactly(sock.recv, exception_adu_size)
+    print("response_error_adu:", response_error_adu)
     raise_for_exception_adu(response_error_adu)
 
     expected_response_size = \
