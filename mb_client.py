@@ -127,15 +127,16 @@ def dec_msg(message):
 
 
 sock.sendall(enc_msg(message))
+print("message sent")
 resp = sock.recv(1024)
 resp_dec = dec_msg(resp)
 
 # print("message sent. server response:", ba.hexlify(resp))
-print("message sent\nparsed server response:", tcp.parse_response_adu(resp_dec, message))
+print("parsed server response:", tcp.parse_response_adu(resp_dec, message))
 
 
 
-print("...\nreading data pts")
+print("\n...\nreading data pts")
 message = tcp.read_coils(slave_id=1,starting_address=1,quantity=len(data))
 
 
