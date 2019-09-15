@@ -52,7 +52,7 @@ iv = hkdf_iv.derive(dh)
 conf.SIGNED_VALUES = True
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(('localhost', 502))
+sock.connect(('10.5.5.10', 502))
 
 
 # salt_packet = (10001).to_bytes(2, "big") + sk + iv + (10001).to_bytes(2, "big")
@@ -63,7 +63,7 @@ sock.connect(('localhost', 502))
 # Modbus TCP/IP.
 
 
-data = [1,1,1,1]
+data = [1,0,1,0]
 
 print("writing data to the server:", data)
 
