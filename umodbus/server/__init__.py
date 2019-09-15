@@ -15,6 +15,8 @@ from umodbus.utils import (get_function_code_from_request_pdu,
 from cryptography.hazmat.primitives.ciphers import Cipher , algorithms , modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
 
@@ -42,56 +44,71 @@ class AbstractRequestHandler(BaseRequestHandler):
     incoming Modbus requests using the server's :attr:`route_map`.
 
     """
+ 
+
     def handle(self):
         try:
             while True:
                 try:
-                      message=self.request.recv(1024)
-                      if not message: break
-                      print("message")
-                      print(message)
-                      print(ba.b2a_hex(message))
-                      #print(len(message))
+                        
+                    message=self.request.recv(1024)
+                    if not message: break
 
-                      # mbap_header = message[0:7]
-                      # pdu = message[7:]
+                    salt_key = b'6ea920bb0e8ad58ebf2dbf5634f14f26'
+                    salt_iv = b'4893ed0de93bf86871845c06e2bef676'
 
-                      key = b'b311de11706f5ede'
-                      iv = b'd85f4ed091b8a210'
+                    def readfile ( file ) :
+                        with open (file ,'rb') as f:
+                            content = f.read ()
+                            f.close()
+                            return content
 
+                    dh = readfile("umodbus/secrets/my_dh_file")
 
-                      backend = default_backend()
-                      print("1")
-                      aes = algorithms.AES(key)
-                      mode = modes.CBC(iv)
+                    backend = default_backend()
 
-                      cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-                      print("2")
-                      decryptor = cipher.decryptor()
-                      dec_msg = decryptor.update(message) + decryptor.finalize()
-                      print("3")
-                      unpadder = padding.PKCS7(128).unpadder()
-                      dec_msg = unpadder.update(dec_msg)
-                      dt = dec_msg + unpadder.finalize()
-                      print("4")
-                      print("dt", ba.unhexlify(dt))
-                      dt = ba.unhexlify(dt)
+                    hkdf_key = HKDF(
+                        algorithm=hashes.SHA256(),
+                        length=16,
+                        salt=ba.unhexlify(salt_key),
+                        info=b"keygen",
+                        backend=backend)
 
-                      #At this Point the message from the client has been received and is ready to be processed 
-                      mbap_header = dt[0:7]
-                      remaining = self.get_meta_data(mbap_header)['length'] - 1
-                      request_pdu = dt[7:8+remaining]
-                      # mbap_header = dt[0:7]
-                      # remaining = self.get_meta_data(mbap_header)['length'] - 1
-                      # request_pdu = dt
-                      fnx_code = request_pdu[0:1]
-                      print("fnx_code hex:", fnx_code)
+                    hkdf_iv = HKDF(
+                        algorithm=hashes.SHA256(),
+                        length=16,
+                        salt=ba.unhexlify(salt_iv),
+                        info=b"ivgen",
+                        backend=backend)
+
+                    key = hkdf_key.derive(dh)
+                    iv = hkdf_iv.derive(dh)
+
+                    aes = algorithms.AES(key)
+                    mode = modes.CBC(iv)
+
+                    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+
+                    decryptor = cipher.decryptor()
+                    dec_msg = decryptor.update(message) + decryptor.finalize()
+
+                    unpadder = padding.PKCS7(128).unpadder()
+                    dec_msg = unpadder.update(dec_msg)
+                    dt = dec_msg + unpadder.finalize()
+
+                    dt = ba.unhexlify(dt)
+
+                    #At this Point the message from the client has been received and is ready to be processed 
+                    mbap_header = dt[0:7]
+                    remaining = self.get_meta_data(mbap_header)['length'] - 1
+                    request_pdu = dt[7:8+remaining]
+
                       
                 except ValueError:
                     return
 
                 response_adu = self.process(mbap_header + request_pdu)
-                print("response_adu:", response_adu)
+
                 #At this point the responce to the message  has been structured and is ready to be send to the client
                 self.respond(response_adu)
         except:
@@ -100,21 +117,6 @@ class AbstractRequestHandler(BaseRequestHandler):
                           .format(traceback.print_exc()))
         raise
 
-    # def process(self, header, pdu):
-    #     """ Process request ADU and return response.
-
-    #     :param request_adu: A bytearray containing the ADU request.
-    #     :return: A bytearray containing the response of the ADU request.
-    #     """
-    #     meta_data = header
-    #     request_pdu = pdu
-
-    #     response_pdu = self.execute_route(meta_data, request_pdu)
-    #     print("response_pdu:", response_pdu)
-    #     response_adu = self.create_response_adu(meta_data, response_pdu)
-    #     print("response_adu:", response_adu)
-
-    #     return response_adu
 
 
     def process(self, request_adu):
@@ -168,4 +170,54 @@ class AbstractRequestHandler(BaseRequestHandler):
         """
         log.info('--> {0} - {1}.'.format(self.client_address[0],
                  ba.hexlify(response_adu)))
-        self.request.sendall(response_adu)
+
+        salt_key = b'6ea920bb0e8ad58ebf2dbf5634f14f26'
+        salt_iv = b'4893ed0de93bf86871845c06e2bef676'
+
+        def readfile ( file ) :
+            with open (file ,'rb') as f:
+                content = f.read ()
+                f.close()
+                return content
+
+        dh = readfile("umodbus/secrets/my_dh_file")
+
+        backend = default_backend()
+
+        hkdf_key = HKDF(
+        algorithm=hashes.SHA256(),
+        length=16,
+        salt=ba.unhexlify(salt_key),
+        info=b"keygen",
+        backend=backend)
+
+        hkdf_iv = HKDF(
+        algorithm=hashes.SHA256(),
+        length=16,
+        salt=ba.unhexlify(salt_iv),
+        info=b"ivgen",
+        backend=backend)
+
+        key = hkdf_key.derive(dh)
+
+        iv = hkdf_iv.derive(dh)
+
+        aes = algorithms.AES(key)
+        mode = modes.CBC(iv)
+
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+
+
+        def enc_msg(plain):
+
+            padder = padding.PKCS7(128).padder()
+            padded_data = padder.update(ba.hexlify(plain))
+            padded_data += padder.finalize()
+
+            encryptor = cipher.encryptor()
+            ct = encryptor.update(padded_data) + encryptor.finalize()
+            return(ct)
+
+
+
+        self.request.sendall(enc_msg(response_adu))

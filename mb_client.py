@@ -11,101 +11,122 @@ from cryptography.hazmat.primitives.ciphers import Cipher , algorithms , modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+import os
+
+from umodbus.client import dhclient
+
+# key derivation
+dh = dhclient.dh_client()
+
+print("dhkeys received!")
+
+salt_key = b'6ea920bb0e8ad58ebf2dbf5634f14f26'
+salt_iv = b'4893ed0de93bf86871845c06e2bef676'
+
+
+
+backend = default_backend()
+
+hkdf_key = HKDF(
+	algorithm=hashes.SHA256(),
+	length=16,
+	salt=ba.unhexlify(salt_key),
+	info=b"keygen",
+	backend=backend)
+
+hkdf_iv = HKDF(
+	algorithm=hashes.SHA256(),
+	length=16,
+	salt=ba.unhexlify(salt_iv),
+	info=b"ivgen",
+	backend=backend)
+
+key = hkdf_key.derive(dh)
+iv = hkdf_iv.derive(dh)
+
+
+
 # Enable values to be signed (default is False).
 conf.SIGNED_VALUES = True
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(('localhost', 502))
 
+
+# salt_packet = (10001).to_bytes(2, "big") + sk + iv + (10001).to_bytes(2, "big")
+
+# sock.sendall(salt_packet)
+
 # Returns a message or Application Data Unit (ADU) specific for doing
 # Modbus TCP/IP.
-print("writing data:")
+
+
 data = [1,1,1,1]
+
+print("writing data to the server:", data)
+
 message = tcp.write_multiple_coils(slave_id=1, starting_address=1, values=data)
 
-print("message data", message)
-# print("message data og:", message)
-print("message data ba", ba.unhexlify(ba.hexlify(message)))
 
-# mbap = ba.hexlify(message[0:7])
+aes = algorithms.AES(key)
+mode = modes.CBC(iv)
 
-# pdu = ba.hexlify(message[7:])
-# fnx_code = ba.hexlify(pdu[:1])
-# data = ba.hexlify(pdu[1:])
-
-# print("mbap:", mbap)
-# print("fnx_code:", fnx_code)
-# print("data:", data)
-# print("length:", mbap.decode("hex"))
+cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
 
 
 
 
 
-def enc_msg(msg):
-	key = b'b311de11706f5ede'
-	iv = b'd85f4ed091b8a210'
-
-
-	backend = default_backend()
-	# data = message
-	aes = algorithms.AES(key)
-	mode = modes.CBC(iv)
-
-	cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-
-	# mbap = msg[0:7]
-	# pdu = msg[7:]
+# function to encrypt a plaintext message
+def enc_msg(plain):
 
 	padder = padding.PKCS7(128).padder()
-	padded_data = padder.update(ba.hexlify(msg))
+	padded_data = padder.update(ba.hexlify(plain))
 	padded_data += padder.finalize()
 
 	encryptor = cipher.encryptor()
 	ct = encryptor.update(padded_data) + encryptor.finalize()
 	return(ct)
 
-# Response depends on Modbus function code. This particular returns the
-# amount of coils written, in this case it is.
 
-# print("encrypted data:", ct)
 
-print("encrypted message:", enc_msg(message))
+# function to decrypt ciphertext
+def dec_msg(enc):
+	decryptor = cipher.decryptor()
+	dec_msg = decryptor.update(enc) + decryptor.finalize()
+	unpadder = padding.PKCS7(128).unpadder()
+	dec_msg = unpadder.update(dec_msg)
+	dt = dec_msg + unpadder.finalize()
+	dt = ba.unhexlify(dt)
+	return(dt)
+
+
 
 sock.sendall(enc_msg(message))
 resp = sock.recv(1024)
+resp_dec = dec_msg(resp)
 
-print("message sent. server response:", ba.hexlify(resp))
-print("parsed response:", tcp.parse_response_adu(resp, message))
-
-# print("hehe", tcp.parse_response_adu(resp, message))
-
-# mm=sock.recv(1024)
-
-# parse_response_adu(decr, message)
-
-#response = tcp.send_message(message, sock)
+# print("message sent. server response:", ba.hexlify(resp))
+print("message sent\nparsed server response:", tcp.parse_response_adu(resp_dec, message))
 
 
 
-# print(response)
-
-print("reading data pts")
+print("...\nreading data pts")
 message = tcp.read_coils(slave_id=1,starting_address=1,quantity=len(data))
-#message=b"".join([message,b'\x64'])
-print("read coils msg plain hex:", ba.hexlify(message))
-print("read coils msg enc:", enc_msg(message))
-# print(ba.b2a_hex(message))
+
 
 sock.sendall(enc_msg(message))
 
 recv = sock.recv(1024)
-print("received:")
-print(recv)
+print("message received!")
+# print(recv)
 
 
-print("received parsed:")
-print(tcp.parse_response_adu(recv, message))
+print("message data parsed:")
+recv_dec = dec_msg(recv)
+print(tcp.parse_response_adu(recv_dec, message))
 
 # print(responce)
 sock.close()

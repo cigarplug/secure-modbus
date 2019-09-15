@@ -8,6 +8,16 @@ from umodbus import conf
 from umodbus.server.tcp import RequestHandler, get_server
 from umodbus.utils import log_to_stream
 
+from umodbus.server import dhserver
+import socketserver
+
+
+## dh key exchange
+
+dh_server = socketserver.TCPServer(("localhost", 7777), dhserver.Dh_Handler)
+dh_server.handle_request()
+
+
 # Add stream handler to logger 'uModbus'.
 log_to_stream(level=logging.DEBUG)
 

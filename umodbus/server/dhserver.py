@@ -56,6 +56,8 @@ class Dh_Handler(socketserver.BaseRequestHandler):
     It is instantiated once per connection to the server.
     '''
 
+    sharedkey = None
+
     def __init__(self, request, client_address, server):
         ''' here we do our service specific initialisation
          in this case we want to load the DH parameters
@@ -67,6 +69,8 @@ class Dh_Handler(socketserver.BaseRequestHandler):
         # current state, received a request but not handled yet
         # the state variable is made up, it helps us keep track of what is happening
         self.state = 0
+
+        
         # we just pass the variables we receive to the BaseRequestHandler to do
         # whatever tcp needs to do  
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
@@ -89,7 +93,9 @@ class Dh_Handler(socketserver.BaseRequestHandler):
             self.state = 1
             # we print the received data and state on the server so we could follow how things
             # work
-            print(self.data, self.state)
+            
+            # print(self.data, self.state)
+            
             # now let's say the proper response in our protocol to the client's Hello message
             # is the text message Hey There!
             response = b'Hey there!'
@@ -110,7 +116,9 @@ class Dh_Handler(socketserver.BaseRequestHandler):
         if self.state == 1 and self.data == b'Params?':
             # change the state to parameters requested
             self.state = 2
-            print(self.data, self.state)
+
+            # print(self.data, self.state)
+            
             dh_params = self.params
             # here we convert the parameter object to binary so we could send it over the network
             response = dh_params.parameter_bytes(Encoding.PEM, ParameterFormat.PKCS3)
@@ -148,11 +156,18 @@ class Dh_Handler(socketserver.BaseRequestHandler):
                 
                 # and we are done back to waiting
                 self.state = 0
-                print(self.data, self.state)
+
+                # print(self.data, self.state)
+                
                 self.request.sendall(response)
                 # we print the shared secret on the server and return
-                print('Shared Secret:\n{}'.format(ba.hexlify(shared_secret)))
-                return
+
+                # print('Shared Secret:\n{}'.format(ba.hexlify(shared_secret)))
+                
+                # self.shutdown()
+                f = open("umodbus/secrets/my_dh_file", "wb")
+                f.write(shared_secret)
+                f.close()
             else:
                 # if we get here the client key is not right
                 response = b'Invalid client public key, hanging up'
@@ -179,3 +194,4 @@ def main():
    
 if __name__ == '__main__':
     main()
+
