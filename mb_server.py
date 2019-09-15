@@ -14,7 +14,7 @@ import socketserver
 
 ## dh key exchange
 
-dh_server = socketserver.TCPServer(("10.5.5.10", 7777), dhserver.Dh_Handler)
+dh_server = socketserver.TCPServer(("localhost", 7777), dhserver.Dh_Handler)
 dh_server.handle_request()
 
 
@@ -29,7 +29,7 @@ data_store = defaultdict(int)
 conf.SIGNED_VALUES = True
 
 TCPServer.allow_reuse_address = True
-app = get_server(TCPServer, ('10.5.5.10', 502), RequestHandler)
+app = get_server(TCPServer, ('localhost', 502), RequestHandler)
 
 
 @app.route(slave_ids=[1], function_codes=[1, 2], addresses=list(range(0, 25)))

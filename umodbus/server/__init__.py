@@ -15,7 +15,7 @@ from umodbus.utils import (get_function_code_from_request_pdu,
 from cryptography.hazmat.primitives.ciphers import Cipher , algorithms , modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
@@ -89,6 +89,13 @@ class AbstractRequestHandler(BaseRequestHandler):
 
                     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
 
+
+                    hash_received = message[(len(message)-32):len(message)]
+                    message = message[0:(len(message)-32)]
+                    
+
+
+
                     decryptor = cipher.decryptor()
                     dec_msg = decryptor.update(message) + decryptor.finalize()
 
@@ -98,6 +105,21 @@ class AbstractRequestHandler(BaseRequestHandler):
 
                     dt = ba.unhexlify(dt)
 
+                    h = hmac.HMAC(key, hashes.SHA256(), backend=backend)
+                    h.update(dt)
+
+                    hash_generated = h.finalize()
+                    # print("hash rec:", hash_received)
+                    # print("hash gen:", hash_generated)
+
+                    if(hash_generated != hash_received):
+                        print("hash mismatch! time to abort...")
+                        break
+                    else:
+                        print("hash matched!")
+
+
+               
                     #At this Point the message from the client has been received and is ready to be processed 
                     mbap_header = dt[0:7]
                     remaining = self.get_meta_data(mbap_header)['length'] - 1
@@ -216,7 +238,13 @@ class AbstractRequestHandler(BaseRequestHandler):
 
             encryptor = cipher.encryptor()
             ct = encryptor.update(padded_data) + encryptor.finalize()
-            return(ct)
+            # hmac  
+            h = hmac.HMAC(key, hashes.SHA256(), backend=backend)
+            h.update(plain)
+            mac = h.finalize()
+            # length of this mac is 32
+
+            return(ct+mac)
 
 
 

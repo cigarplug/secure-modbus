@@ -9,7 +9,7 @@ import socket
 
 def dh_client():
     # we specify the server's address or hostname and port
-    host, port = '10.5.5.10', 7777
+    host, port = 'localhost', 7777
     # create a tcp socket for IPv4
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # connect to the tcp socket

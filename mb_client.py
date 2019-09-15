@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher , algorithms , modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 import os
 
@@ -52,7 +52,7 @@ iv = hkdf_iv.derive(dh)
 conf.SIGNED_VALUES = True
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(('10.5.5.10', 502))
+sock.connect(('localhost', 502))
 
 
 # salt_packet = (10001).to_bytes(2, "big") + sk + iv + (10001).to_bytes(2, "big")
@@ -88,19 +88,41 @@ def enc_msg(plain):
 
 	encryptor = cipher.encryptor()
 	ct = encryptor.update(padded_data) + encryptor.finalize()
-	return(ct)
+
+	# hmac
+	h = hmac.HMAC(key, hashes.SHA256(), backend=backend)
+	h.update(plain)
+	mac = h.finalize()
+	# length of this mac is 32
+	return(ct+mac)
 
 
 
 # function to decrypt ciphertext
-def dec_msg(enc):
+def dec_msg(message):
 	decryptor = cipher.decryptor()
-	dec_msg = decryptor.update(enc) + decryptor.finalize()
+
+	hash_received = message[(len(message)-32):len(message)]
+	message = message[0:(len(message)-32)]
+
+	dec_msg = decryptor.update(message) + decryptor.finalize()
 	unpadder = padding.PKCS7(128).unpadder()
 	dec_msg = unpadder.update(dec_msg)
 	dt = dec_msg + unpadder.finalize()
 	dt = ba.unhexlify(dt)
-	return(dt)
+
+	h = hmac.HMAC(key, hashes.SHA256(), backend=backend)
+	h.update(dt)
+	hash_generated = h.finalize()
+
+	if hash_generated != hash_received:
+		print("hash mismatch! time to abort...")
+		return None
+	else:
+		print("hash matched")
+		return(dt)
+
+
 
 
 
@@ -121,11 +143,9 @@ sock.sendall(enc_msg(message))
 
 recv = sock.recv(1024)
 print("message received!")
-# print(recv)
 
-
-print("message data parsed:")
 recv_dec = dec_msg(recv)
+print("message data parsed:")
 print(tcp.parse_response_adu(recv_dec, message))
 
 # print(responce)
