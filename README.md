@@ -6,6 +6,7 @@ In this repository, we have modified the uModbus library and implemeneted encryp
 Secure keys are generated using Diffie-Helman exchange. These are fed into a KDF to obtain keys for AES encryption
 
 AES mode: CBC-128
+
 Authentication: HMAC  (encrypt and MAC)
 
 ## Bugs
